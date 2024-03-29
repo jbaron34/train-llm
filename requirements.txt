@@ -1,0 +1,7 @@
+torch
+accelerate
+peft @ git+https://github.com/huggingface/peft.git
+trl
+bitsandbytes
+flash-attn
+requests
