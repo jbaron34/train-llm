@@ -6,7 +6,6 @@ from transformers import (
     MistralForCausalLM,
     GenerationConfig,
 )
-from peft import PeftModel
 
 
 BNB_CONFIG = BitsAndBytesConfig(
@@ -17,36 +16,19 @@ BNB_CONFIG = BitsAndBytesConfig(
     bnb_4bit_quant_storage="bfloat16",
 )
 MODEL = MistralForCausalLM.from_pretrained(
-    "mistralai/Mistral-7B-Instruct-v0.2",
+    "runs/merged",
     quantization_config=BNB_CONFIG,
     trust_remote_code=True,
     attn_implementation="flash_attention_2",
     torch_dtype=torch.bfloat16,
 )
-MODEL.model.embed_tokens = torch.nn.modules.sparse.Embedding(
-    num_embeddings=32008,
-    embedding_dim=4096,
-    padding_idx=None,
-    max_norm=None,
-    norm_type=2.0,
-    scale_grad_by_freq=False,
-    sparse=False,
-)
-MODEL.lm_head = torch.nn.Linear(4096, 32008, bias=False)
-MODEL = PeftModel.from_pretrained(MODEL, "runs/mistral-7b-sft-lora-fsdp")
-MODEL.to("cuda:0")
-TOKENIZER = AutoTokenizer.from_pretrained("runs/mistral-7b-sft-lora-fsdp")
-GENERATION_CONFIG = GenerationConfig(
-    early_stopping=True,
-    decoder_start_token_id=0,
-    eos_token_id=32000,
-    pad_token=32001,
-)
+TOKENIZER = AutoTokenizer.from_pretrained("runs/merged")
+GENERATION_CONFIG = GenerationConfig.from_pretrained("runs/merged")
 
 
 def infer(messages):
     text = TOKENIZER.apply_chat_template(messages, return_tensors="pt", tokenize=False)
-    inputs = TOKENIZER(text, return_tensors="pt").input_ids
+    inputs = TOKENIZER(text, return_tensors="pt").input_ids.to(device="cuda:0", dtype=torch.long)
     generated = MODEL.generate(
         inputs,
         max_new_tokens=100,
@@ -59,6 +41,7 @@ def infer(messages):
 
 
 if __name__ == "__main__":
+    N = 100
     messages = [
         {
             "role": "system",
@@ -70,6 +53,6 @@ if __name__ == "__main__":
         },
     ]
     start = time.time()
-    for i in range(100):
+    for i in range(N):
         print(infer(messages))
-    print(time.time() - start)
+    print((time.time() - start) / N)

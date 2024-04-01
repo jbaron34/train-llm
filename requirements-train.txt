@@ -5,3 +5,4 @@ trl
 bitsandbytes
 flash-attn
 requests
+autoawq
